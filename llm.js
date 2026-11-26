@@ -6,8 +6,7 @@ const SYSTEM = `말투: 존댓말(해요체)로 답한다.
 길이: 한 문단, 세 문장 이내로 답한다.
 형식: 목록, 제목, 굵은 글씨 같은 마크다운을 쓰지 않는다.`;
 
-// ask("a question")  ->  the model's answer, as a string
-export async function ask(question) {
+async function complete(messages) {
   const res = await fetch(`${process.env.LLM_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
@@ -16,10 +15,7 @@ export async function ask(question) {
     },
     body: JSON.stringify({
       model: process.env.LLM_MODEL,
-      messages: [
-        { role: "system", content: SYSTEM },
-        { role: "user", content: question },
-      ],
+      messages,
     }),
   });
 
@@ -31,11 +27,18 @@ export async function ask(question) {
   return data.choices[0].message.content.trim();
 }
 
+// ask("a question")  ->  the model's answer, as a string
+export async function ask(question) {
+  return complete([
+    { role: "system", content: SYSTEM },
+    { role: "user", content: question },
+  ]);
+}
+
 // chat([{ role: "user", content: "..." }, { role: "assistant", content: "..." }, ...])
 //   ->  the model's next answer, as a string
 export async function chat(history) {
-  // TODO P5: write this function (see problems/P5_chat.md). Delete the throw line below.
-  throw new Error("chat() is not written yet");
+  return complete([{ role: "system", content: SYSTEM }, ...history]);
 }
 
 // analyze("a review")  ->  an object, not a sentence:
