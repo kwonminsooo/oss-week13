@@ -6,7 +6,14 @@ const SYSTEM = `말투: 존댓말(해요체)로 답한다.
 길이: 한 문단, 세 문장 이내로 답한다.
 형식: 목록, 제목, 굵은 글씨 같은 마크다운을 쓰지 않는다.`;
 
-async function complete(messages) {
+const SYSTEM_JSON = `사용자가 보낸 상품 후기를 분석해서 JSON 객체 하나로만 답한다. JSON 밖에는 어떤 글자도 쓰지 않는다.
+키는 정확히 다음 세 개만 쓴다: "sentiment", "score", "summary".
+sentiment 가 "positive", "negative", "neutral" 중 하나인가 ([...].includes(sentiment))
+score 가 1 이상 5 이하의 정수인가 (Number.isInteger(score) && score >= 1 && score <= 5)
+summary 가 문자열인가 (typeof summary === "string")
+`;
+
+async function complete(messages, options = {}) {
   const res = await fetch(`${process.env.LLM_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
@@ -16,6 +23,7 @@ async function complete(messages) {
     body: JSON.stringify({
       model: process.env.LLM_MODEL,
       messages,
+      ...options,
     }),
   });
 
@@ -44,6 +52,23 @@ export async function chat(history) {
 // analyze("a review")  ->  an object, not a sentence:
 //   { sentiment: "positive" | "negative" | "neutral", score: 1..5, summary: "one short sentence" }
 export async function analyze(text) {
-  // TODO P6: write this function (see problems/P6_json.md). Delete the throw line below.
-  throw new Error("analyze() is not written yet");
+  const content = await complete(
+    [
+      { role: "system", content: SYSTEM_JSON },
+      { role: "user", content: text },
+    ],
+    { response_format: { type: "json_object" } },
+  );
+
+  const { sentiment, score, summary } = JSON.parse(content);
+
+  if (
+    !["positive", "negative", "neutral"].includes(sentiment) ||
+    !(Number.isInteger(score) && score >= 1 && score <= 5) ||
+    typeof summary !== "string"
+  ) {
+    throw new Error("LLM: the answer has the wrong shape");
+  }
+
+  return { sentiment, score, summary };
 }
